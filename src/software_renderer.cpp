@@ -238,12 +238,95 @@ void SoftwareRendererImp::rasterize_point( float x, float y, Color color ) {
 
 }
 
+std::vector<std::pair<float, float>> SoftwareRendererImp::bresenham_low(float x0, float y0,
+                                                                        float x1, float y1) {
+  float dx = x1 - x0,
+  dy = y1 - y0,
+  yi = 1, D, y;
+
+  std::vector<pair<float, float>> points;
+
+  if(dy < 0) {
+    yi = -1;
+    dy = -dy;
+  }    
+
+  D = (2 * dy) - dx;
+  y = y0;
+
+  for(int x = (int) floor(x0); x < x1; x++){
+    std::pair<float, float> point (x, y);
+    points.push_back(point);
+
+    if(D > 0){
+      y = y + yi;
+      D = D + (2 * (dy - dx));
+    } else {
+      D = D + 2*dy;
+    }
+  }
+
+  return points;
+}
+
+std::vector<std::pair<float, float>> SoftwareRendererImp::bresenham_high(float x0, float y0,
+                                                                        float x1, float y1) {
+  float dx = x1 - x0,
+  dy = y1 - y0,
+  xi = 1, D, x;
+
+  std::vector<pair<float, float>> points;
+
+  if(dy < 0) {
+    xi = -1;
+    dx = -dx;
+  }    
+
+  D = (2 * dx) - dy;
+  x = x0;
+
+  for(int y = (int) floor(y0); y < y1; y++){
+    std::pair<float, float> point (x, y);
+    points.push_back(point);
+
+    if(D > 0){
+      x = x + xi;
+      D = D + (2 * (dx - dy));
+    } else {
+      D = D + 2*dx;
+    }
+  }
+
+  return points;
+}
+
+std::vector<std::pair<float, float>> SoftwareRendererImp::bresenham(float x0, float y0,
+                                     float x1, float y1){
+  if(abs(y1 - y0) < abs(x1 - x0)){
+    if(x0 > x1){
+      return SoftwareRendererImp::bresenham_low(x1, y1, x0, y0);
+    } else {
+      return SoftwareRendererImp::bresenham_low(x0, y0, x1, y1);
+    }
+  } else {
+    if(y0 > y1){
+      return SoftwareRendererImp::bresenham_high(x1, y1, x0, y0);
+    } else {
+      return SoftwareRendererImp::bresenham_high(x0, y0, x1, y1);
+    }
+  }
+}
+
 void SoftwareRendererImp::rasterize_line( float x0, float y0,
                                           float x1, float y1,
                                           Color color) {
 
   // Task 2: 
   // Implement line rasterization
+  std::vector<std::pair<float, float>> points = SoftwareRendererImp::bresenham(x0, y0, x1, y1);
+  for(int i = 0; i < points.size(); i++){
+    SoftwareRendererImp::rasterize_point( points[i].first, points[i].second, color );
+  }
 }
 
 void SoftwareRendererImp::rasterize_triangle( float x0, float y0,

@@ -133,6 +133,14 @@ class SoftwareRendererImp : public SoftwareRenderer {
   // resolve samples to render target
   void resolve( void );
 
+  //helpers
+  std::vector<std::pair<float, float>> bresenham(float x0, float y0,
+                                  float x1, float y1);
+  std::vector<std::pair<float, float>> bresenham_low(float x0, float y0,
+                                  float x1, float y1);
+  std::vector<std::pair<float, float>> bresenham_high(float x0, float y0,
+                                  float x1, float y1);
+
 }; // class SoftwareRendererImp
 
 
