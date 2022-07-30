@@ -8,219 +8,223 @@
 #include "texture.h"
 #include "svg_renderer.h"
 
-namespace CMU462 { // CMU462
+namespace CMU462
+{ // CMU462
 
-class SoftwareRenderer : public SVGRenderer {
- public:
+  class SoftwareRenderer : public SVGRenderer
+  {
+  public:
+    SoftwareRenderer() : sample_rate(1) {}
 
-  SoftwareRenderer( ) : sample_rate (1) { }
+    // Free used resources
+    virtual ~SoftwareRenderer() {}
 
-  // Free used resources
-  virtual ~SoftwareRenderer( ) { }
+    // Draw an svg input to render target
+    virtual void draw_svg(SVG &svg) = 0;
 
-  // Draw an svg input to render target
-  virtual void draw_svg( SVG& svg ) = 0;
+    // Set sample rate
+    virtual void set_sample_rate(size_t sample_rate) = 0;
 
-  // Set sample rate
-  virtual void set_sample_rate( size_t sample_rate ) = 0;
-  
-  // Set render target
-  virtual void set_render_target( unsigned char* render_target,
-                                  size_t width, size_t height ) = 0;
+    // Set render target
+    virtual void set_render_target(unsigned char *render_target,
+                                   size_t width, size_t height) = 0;
 
-  // Clear render target
-  inline void clear_target() {
-    memset(render_target, 255, 4 * target_w * target_h);
-  }
+    // Clear render target
+    inline void clear_target()
+    {
+      memset(render_target, 255, 4 * target_w * target_h);
+    }
 
-  // Set texture sampler
-  inline void set_tex_sampler( Sampler2D* sampler ) {
-    this->sampler = sampler;
-  }
+    // Set texture sampler
+    inline void set_tex_sampler(Sampler2D *sampler)
+    {
+      this->sampler = sampler;
+    }
 
-  // Set svg to screen transformation
-  inline void set_svg_2_screen( Matrix3x3 svg_2_screen ) {
-    this->svg_2_screen = svg_2_screen;
-  }
+    // Set svg to screen transformation
+    inline void set_svg_2_screen(Matrix3x3 svg_2_screen)
+    {
+      this->svg_2_screen = svg_2_screen;
+    }
 
- protected:
+  protected:
+    // Sample rate (square root of samples per pixel)
+    size_t sample_rate;
 
-  // Sample rate (square root of samples per pixel)
-  size_t sample_rate;
+    // Render target memory location
+    unsigned char *render_target;
 
-  // Render target memory location
-  unsigned char* render_target; 
+    // Target buffer dimension (in pixels)
+    size_t target_w;
+    size_t target_h;
 
-  // Target buffer dimension (in pixels)
-  size_t target_w; size_t target_h;
+    // Texture sampler being used
+    Sampler2D *sampler;
 
-  // Texture sampler being used
-  Sampler2D* sampler;
+    // SVG coordinates to screen space coordinates
+    Matrix3x3 svg_2_screen;
 
-  // SVG coordinates to screen space coordinates
-  Matrix3x3 svg_2_screen;
+  }; // class SoftwareRenderer
 
-}; // class SoftwareRenderer
+  class SoftwareRendererImp : public SoftwareRenderer
+  {
+  public:
+    SoftwareRendererImp() : SoftwareRenderer() {}
 
+    // draw an svg input to render target
+    void draw_svg(SVG &svg);
 
-class SoftwareRendererImp : public SoftwareRenderer {
- public:
+    // set sample rate
+    void set_sample_rate(size_t sample_rate);
 
-  SoftwareRendererImp( ) : SoftwareRenderer( ) { }
+    // set render target
+    void set_render_target(unsigned char *target_buffer,
+                           size_t width, size_t height);
 
-  // draw an svg input to render target
-  void draw_svg( SVG& svg );
+  private:
+    // Primitive Drawing //
 
-  // set sample rate
-  void set_sample_rate( size_t sample_rate );
-  
-  // set render target
-  void set_render_target( unsigned char* target_buffer,
-                          size_t width, size_t height );
+    // Draws an SVG element
+    void draw_element(SVGElement *element);
 
- private:
+    // Draws a point
+    void draw_point(Point &p);
 
-  // Primitive Drawing //
+    // Draw a line
+    void draw_line(Line &line);
 
-  // Draws an SVG element
-  void draw_element( SVGElement* element );
+    // Draw a polyline
+    void draw_polyline(Polyline &polyline);
 
-  // Draws a point
-  void draw_point( Point& p );
+    // Draw a rectangle
+    void draw_rect(Rect &rect);
 
-  // Draw a line
-  void draw_line( Line& line );
+    // Draw a polygon
+    void draw_polygon(Polygon &polygon);
 
-  // Draw a polyline
-  void draw_polyline( Polyline& polyline );
+    // Draw a ellipse
+    void draw_ellipse(Ellipse &ellipse);
 
-  // Draw a rectangle
-  void draw_rect ( Rect& rect );
+    // Draws a bitmap image
+    void draw_image(Image &image);
 
-  // Draw a polygon
-  void draw_polygon( Polygon& polygon );
+    // Draw a group
+    void draw_group(Group &group);
 
-  // Draw a ellipse
-  void draw_ellipse( Ellipse& ellipse );
+    // Rasterization //
 
-  // Draws a bitmap image
-  void draw_image( Image& image );
+    // rasterize a point
+    void rasterize_point(float x, float y, Color color);
 
-  // Draw a group
-  void draw_group( Group& group );
-
-  // Rasterization //
-
-  // rasterize a point
-  void rasterize_point( float x, float y, Color color );
-
-  // rasterize a line
-  void rasterize_line( float x0, float y0,
-                       float x1, float y1,
-                       Color color);
-
-  // rasterize a triangle
-  void rasterize_triangle( float x0, float y0,
-                           float x1, float y1,
-                           float x2, float y2,
-                           Color color );
-
-  // rasterize an image
-  void rasterize_image( float x0, float y0,
+    // rasterize a line
+    void rasterize_line(float x0, float y0,
                         float x1, float y1,
-                        Texture& tex );
+                        Color color);
 
-  // resolve samples to render target
-  void resolve( void );
+    // rasterize a triangle
+    void rasterize_triangle(float x0, float y0,
+                            float x1, float y1,
+                            float x2, float y2,
+                            Color color);
 
-  //helpers
-  std::vector<std::pair<float, float>> bresenham(float x0, float y0,
-                                  float x1, float y1);
-  std::vector<std::pair<float, float>> bresenham_low(float x0, float y0,
-                                  float x1, float y1);
-  std::vector<std::pair<float, float>> bresenham_high(float x0, float y0,
-                                  float x1, float y1);
+    // rasterize an image
+    void rasterize_image(float x0, float y0,
+                         float x1, float y1,
+                         Texture &tex);
 
-}; // class SoftwareRendererImp
+    // resolve samples to render target
+    void resolve(void);
 
+    // helpers
+    std::vector<std::pair<float, float>> bresenham(float x0, float y0,
+                                                   float x1, float y1);
+    std::vector<std::pair<float, float>> bresenham_low(float x0, float y0,
+                                                       float x1, float y1);
+    std::vector<std::pair<float, float>> bresenham_high(float x0, float y0,
+                                                        float x1, float y1);
+    bool edgeFunction(float x0, float y0,
+                      float x1, float y1,
+                      float xp, float yp);
+  }; // class SoftwareRendererImp
 
-class SoftwareRendererRef : public SoftwareRenderer {
- public:
+  class SoftwareRendererRef : public SoftwareRenderer
+  {
+  public:
+    SoftwareRendererRef() : SoftwareRenderer() {}
 
-  SoftwareRendererRef( ) : SoftwareRenderer( ) { }
+    // draw an svg input to render target
+    void draw_svg(SVG &svg);
 
-  // draw an svg input to render target
-  void draw_svg( SVG& svg );
+    // set sample rate
+    void set_sample_rate(size_t sample_rate);
 
-  // set sample rate
-  void set_sample_rate( size_t sample_rate );
-  
-  // set render target
-  void set_render_target( unsigned char* target_buffer,
-                          size_t width, size_t height );
+    // set render target
+    void set_render_target(unsigned char *target_buffer,
+                           size_t width, size_t height);
 
- private:
+  private:
+    // Primitive Drawing //
 
-  // Primitive Drawing //
+    // Draws an SVG element
+    void draw_element(SVGElement *element);
 
-  // Draws an SVG element
-  void draw_element( SVGElement* element );
+    // Draws a point
+    void draw_point(Point &p);
 
-  // Draws a point
-  void draw_point( Point& p );
+    // Draw a line
+    void draw_line(Line &line);
 
-  // Draw a line
-  void draw_line( Line& line );
+    // Draw a polyline
+    void draw_polyline(Polyline &polyline);
 
-  // Draw a polyline
-  void draw_polyline( Polyline& polyline );
+    // Draw a rectangle
+    void draw_rect(Rect &rect);
 
-  // Draw a rectangle
-  void draw_rect ( Rect& rect );
+    // Draw a polygon
+    void draw_polygon(Polygon &polygon);
 
-  // Draw a polygon
-  void draw_polygon( Polygon& polygon );
+    // Draw a ellipse
+    void draw_ellipse(Ellipse &ellipse);
 
-  // Draw a ellipse
-  void draw_ellipse( Ellipse& ellipse );
+    // Draws a bitmap image
+    void draw_image(Image &image);
 
-  // Draws a bitmap image
-  void draw_image( Image& image );
+    // Draw a group
+    void draw_group(Group &group);
 
-  // Draw a group
-  void draw_group( Group& group );
+    // Rasterization //
 
-  // Rasterization //
+    // rasterize a point
+    void rasterize_point(float x, float y, Color color);
 
-  // rasterize a point
-  void rasterize_point( float x, float y, Color color );
-
-  // rasterize a line
-  void rasterize_line( float x0, float y0,
-                       float x1, float y1,
-                       Color color);
-
-  // rasterize a triangle
-  void rasterize_triangle( float x0, float y0,
-                           float x1, float y1,
-                           float x2, float y2,
-                           Color color );
-
-  // rasterize an image
-  void rasterize_image( float x0, float y0,
+    // rasterize a line
+    void rasterize_line(float x0, float y0,
                         float x1, float y1,
-                        Texture& tex );
+                        Color color);
 
-  // resolve samples to render target
-  void resolve( void );
+    // rasterize a triangle
+    void rasterize_triangle(float x0, float y0,
+                            float x1, float y1,
+                            float x2, float y2,
+                            Color color);
 
-  // Helpers //
-  // HINT: you may want to have something similar //
-  std::vector<unsigned char> sample_buffer; int w; int h;
-  void fill_sample( int sx, int sy, const Color& c );
-  void fill_pixel( int x, int y, const Color& c );
+    // rasterize an image
+    void rasterize_image(float x0, float y0,
+                         float x1, float y1,
+                         Texture &tex);
 
-}; // class SoftwareRendererRef
+    // resolve samples to render target
+    void resolve(void);
+
+    // Helpers //
+    // HINT: you may want to have something similar //
+    std::vector<unsigned char> sample_buffer;
+    int w;
+    int h;
+    void fill_sample(int sx, int sy, const Color &c);
+    void fill_pixel(int x, int y, const Color &c);
+
+  }; // class SoftwareRendererRef
 
 } // namespace CMU462
 
