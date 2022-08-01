@@ -145,6 +145,9 @@ namespace CMU462
     bool edgeFunction(float x0, float y0,
                       float x1, float y1,
                       float xp, float yp);
+    std::vector<unsigned char> sample_buffer;
+    std::vector<float> sample_selection_map;
+
   }; // class SoftwareRendererImp
 
   class SoftwareRendererRef : public SoftwareRenderer

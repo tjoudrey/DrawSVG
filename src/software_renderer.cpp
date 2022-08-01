@@ -4,6 +4,7 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <numeric>
 
 #include "triangulation.h"
 
@@ -54,7 +55,26 @@ namespace CMU462
 
     // Task 4:
     // You may want to modify this for supersampling support
-    this->sample_rate = sample_rate;
+    switch (sample_rate)
+    {
+    case 1:
+      this->sample_rate = 1;
+      this->sample_selection_map = {};
+      break;
+    case 2:
+      this->sample_rate = 4;
+      this->sample_selection_map = {-.25, .25};
+      break;
+    case 3:
+      this->sample_rate = 9;
+      this->sample_selection_map = {-.25, 0, .25};
+      break;
+    case 4:
+      this->sample_rate = 16;
+      this->sample_selection_map = {-.75, -.15, .15, .75};
+      break;
+    }
+    this->sample_buffer.resize(this->sample_rate);
   }
 
   void SoftwareRendererImp::set_render_target(unsigned char *render_target,
@@ -247,6 +267,19 @@ namespace CMU462
     // fill in the nearest pixel
     int sx = (int)floor(x);
     int sy = (int)floor(y);
+    int alpha = 255;
+    // TODO determine alpha for SSAA
+    if (this->sample_rate > 1)
+    {
+      // cout << this->sample_rate << "successful samples: " << std::accumulate(this->sample_buffer.begin(), this->sample_buffer.end(), 0) << "\n";
+      // cout << "visibility " << 255 * std::accumulate(this->sample_buffer.begin(), this->sample_buffer.end(), 0) / (float)this->sample_buffer.size() << "\n";
+      alpha *= (std::accumulate(this->sample_buffer.begin(), this->sample_buffer.end(), 0) / ((float)this->sample_buffer.size()));
+      // cout << alpha << "\n";
+      // if (std::accumulate(this->sample_buffer.begin(), this->sample_buffer.end(), 0) == this->sample_buffer.size() - 1)
+      // {
+      //   cout << "flawless point\n";
+      // }
+    }
 
     // check bounds
     if (sx < 0 || sx >= target_w)
@@ -258,7 +291,7 @@ namespace CMU462
     render_target[4 * (sx + sy * target_w)] = (uint8_t)(color.r * 255);
     render_target[4 * (sx + sy * target_w) + 1] = (uint8_t)(color.g * 255);
     render_target[4 * (sx + sy * target_w) + 2] = (uint8_t)(color.b * 255);
-    render_target[4 * (sx + sy * target_w) + 3] = (uint8_t)(color.a * 255);
+    render_target[4 * (sx + sy * target_w) + 3] = (uint8_t)(color.a * alpha);
   }
 
   std::vector<std::pair<float, float>> SoftwareRendererImp::bresenham_low(float x0, float y0,
@@ -380,7 +413,6 @@ namespace CMU462
                                          float xb, float yb,
                                          float xp, float yp)
   {
-    // return ((xp - xa) * (yb - ya) - (yp - ya) * (xb - xa) >= 0);
     return ((yp - ya) * (xb - xa) - (xp - xa) * (yb - ya) >= 0);
   }
 
@@ -405,24 +437,42 @@ namespace CMU462
 
     bool inside;
 
-    float px, py;
-
-    for (int x = minX; x < maxX; x++)
+    for (float x = minX; x < maxX; x++)
     {
-      for (int y = minY; y < maxY; y++)
+      for (float y = minY; y < maxY; y++)
       {
         inside = true;
-        px = x + 0.5f;
-        py = y + 0.5f;
-        inside &= SoftwareRendererImp::edgeFunction(x0, y0, x1, y1, px, py);
-        inside &= SoftwareRendererImp::edgeFunction(x1, y1, x2, y2, px, py);
-        inside &= SoftwareRendererImp::edgeFunction(x2, y2, x0, y0, px, py);
+
+        inside &= SoftwareRendererImp::edgeFunction(x0, y0, x1, y1, x, y);
+        inside &= SoftwareRendererImp::edgeFunction(x1, y1, x2, y2, x, y);
+        inside &= SoftwareRendererImp::edgeFunction(x2, y2, x0, y0, x, y);
         if (inside)
         {
+          if (this->sample_rate > 1)
+          {
+            // cout << "\n";
+            for (int ix = 0; ix < this->sample_selection_map.size(); ix++)
+            {
+              for (int iy = 0; iy < this->sample_selection_map.size(); iy++)
+              {
+                inside = true;
+
+                inside &= SoftwareRendererImp::edgeFunction(x0, y0, x1, y1, x + sample_selection_map[ix], y + sample_selection_map[iy]);
+                inside &= SoftwareRendererImp::edgeFunction(x1, y1, x2, y2, x + sample_selection_map[ix], y + sample_selection_map[iy]);
+                inside &= SoftwareRendererImp::edgeFunction(x2, y2, x0, y0, x + sample_selection_map[ix], y + sample_selection_map[iy]);
+                if (inside)
+                {
+                  this->sample_buffer[ix + iy] = 1;
+                }
+                else
+                {
+                  this->sample_buffer[ix + iy] = 0;
+                }
+              }
+            }
+          }
           SoftwareRendererImp::rasterize_point(x, y, color);
-        }
-        else
-        {
+          std::fill(this->sample_buffer.begin(), this->sample_buffer.end(), 1);
         }
       }
     }
