@@ -147,7 +147,9 @@ namespace CMU462
                       float xp, float yp);
     std::vector<unsigned char> sample_buffer;
     std::vector<float> sample_selection_map;
-
+    Vector2D transform_point(float x, float y, Matrix3x3 matrix);
+    Vector2D transform_vector(float x, float y, Matrix3x3 matrix);
+    void apply_transform(SVGElement *element);
   }; // class SoftwareRendererImp
 
   class SoftwareRendererRef : public SoftwareRenderer

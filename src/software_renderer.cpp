@@ -88,11 +88,82 @@ namespace CMU462
     this->target_h = height;
   }
 
+  Vector2D SoftwareRendererImp::transform_point(float x, float y, Matrix3x3 matrix)
+  {
+    Vector3D homogeneous_point(x, y, 1);
+    Vector3D homogeneous_point_prime = matrix * homogeneous_point;
+    Vector2D pair(homogeneous_point_prime[0], homogeneous_point_prime[1]);
+    return pair;
+  }
+
+  Vector2D SoftwareRendererImp::transform_vector(float x, float y, Matrix3x3 matrix)
+  {
+    Vector3D homogeneous_vector(x, y, 0);
+    Vector3D homogeneous_vector_prime = matrix * homogeneous_vector;
+    Vector2D pair(homogeneous_vector[0], homogeneous_vector[1]);
+    return pair;
+  }
+
+  void SoftwareRendererImp::apply_transform(SVGElement *element)
+  {
+    Vector2D point;
+
+    if (element->type == POINT)
+    {
+      point = SoftwareRendererImp::transform_point(static_cast<Point &>(*element).position.x, static_cast<Point &>(*element).position.y, static_cast<Point &>(*element).transform);
+      static_cast<Point &>(*element).position = point;
+    }
+    else if (element->type == LINE)
+    {
+      point = SoftwareRendererImp::transform_point(static_cast<Line &>(*element).from.x, static_cast<Line &>(*element).from.y, static_cast<Line &>(*element).transform);
+      static_cast<Line &>(*element).from = point;
+      point = SoftwareRendererImp::transform_point(static_cast<Line &>(*element).to.x, static_cast<Line &>(*element).to.y, static_cast<Line &>(*element).transform);
+      static_cast<Line &>(*element).to = point;
+    }
+    else if (element->type == POLYLINE || element->type == POLYGON)
+    {
+      for (int i = 0; i < static_cast<Polyline &>(*element).points.size(); i++)
+      {
+        point = SoftwareRendererImp::transform_point(static_cast<Polyline &>(*element).points[i].x, static_cast<Polyline &>(*element).points[i].y, static_cast<Polyline &>(*element).transform);
+        static_cast<Polyline &>(*element).points[i] = point;
+      }
+    }
+    else if (element->type == RECT)
+    {
+      point = SoftwareRendererImp::transform_point(static_cast<Rect &>(*element).position.x, static_cast<Rect &>(*element).position.y, static_cast<Rect &>(*element).transform);
+      static_cast<Rect &>(*element).position = point;
+      point = SoftwareRendererImp::transform_vector(static_cast<Rect &>(*element).dimension.x, static_cast<Rect &>(*element).dimension.y, static_cast<Rect &>(*element).transform);
+      static_cast<Rect &>(*element).dimension = point;
+    }
+    else if (element->type == ELLIPSE)
+    {
+      point = SoftwareRendererImp::transform_point(static_cast<Ellipse &>(*element).center.x, static_cast<Ellipse &>(*element).center.y, static_cast<Ellipse &>(*element).transform);
+      static_cast<Ellipse &>(*element).center = point;
+      point = SoftwareRendererImp::transform_vector(static_cast<Ellipse &>(*element).radius.x, static_cast<Ellipse &>(*element).radius.y, static_cast<Ellipse &>(*element).transform);
+      static_cast<Ellipse &>(*element).radius = point;
+    }
+    else if (element->type == IMAGE)
+    {
+    }
+  }
+
   void SoftwareRendererImp::draw_element(SVGElement *element)
   {
 
     // Task 5 (part 1):
     // Modify this to implement the transformation stack
+    if (element->type == GROUP)
+    {
+      for (int i = 0; i < static_cast<Group &>(*element).elements.size(); i++)
+      {
+        static_cast<Group &>(*element).elements[i]->transform = static_cast<Group &>(*element).elements[i]->transform * static_cast<Group &>(*element).transform;
+        SoftwareRendererImp::apply_transform(static_cast<Group &>(*element).elements[i]);
+      }
+    }
+    else
+    {
+      SoftwareRendererImp::apply_transform(element);
+    }
 
     switch (element->type)
     {
@@ -268,17 +339,9 @@ namespace CMU462
     int sx = (int)floor(x);
     int sy = (int)floor(y);
     int alpha = 255;
-    // TODO determine alpha for SSAA
     if (this->sample_rate > 1)
     {
-      // cout << this->sample_rate << "successful samples: " << std::accumulate(this->sample_buffer.begin(), this->sample_buffer.end(), 0) << "\n";
-      // cout << "visibility " << 255 * std::accumulate(this->sample_buffer.begin(), this->sample_buffer.end(), 0) / (float)this->sample_buffer.size() << "\n";
       alpha *= (std::accumulate(this->sample_buffer.begin(), this->sample_buffer.end(), 0) / ((float)this->sample_buffer.size()));
-      // cout << alpha << "\n";
-      // if (std::accumulate(this->sample_buffer.begin(), this->sample_buffer.end(), 0) == this->sample_buffer.size() - 1)
-      // {
-      //   cout << "flawless point\n";
-      // }
     }
 
     // check bounds
@@ -371,6 +434,8 @@ namespace CMU462
   std::vector<std::pair<float, float>> SoftwareRendererImp::bresenham(float x0, float y0,
                                                                       float x1, float y1)
   {
+    std::fill(this->sample_buffer.begin(), this->sample_buffer.end(), 1);
+
     if (abs(y1 - y0) < abs(x1 - x0))
     {
       if (x0 > x1)
@@ -484,6 +549,26 @@ namespace CMU462
   {
     // Task 6:
     // Implement image rasterization
+    int minX = std::min(x0, x1),
+        minY = std::min(y0, y1),
+        maxX = std::max(x0, x1),
+        maxY = std::max(y0, y1);
+    float normalizedX,
+        normalizedY;
+    Color color;
+
+    this->sampler->generate_mips(tex, 0);
+
+    for (int x = minX; x < maxX; x++)
+    {
+      normalizedX = (x - minX) / (maxX - minX);
+      for (int y = minY; y < maxY; y++)
+      {
+        normalizedY = (y - minY) / (maxY - minY);
+        color = sampler->sample_nearest(tex, normalizedX, normalizedY);
+        rasterize_point(x, y, color);
+      }
+    }
   }
 
   // resolve samples to render target
