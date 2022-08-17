@@ -93,11 +93,11 @@ namespace CMU462
     MipLevel &miplevel = tex.mipmap[level];
 
     // translate uv to mipmap dimenstions
-    int x = miplevel.width * u,
-        y = miplevel.height * v;
+    int x = (int)(static_cast<int>(miplevel.width) * u),
+        y = (int)(static_cast<int>(miplevel.height) * v);
 
     float color_value;
-    uint8_to_float(&color_value, &miplevel.texels[x]); // TODO how do I access the correct texel with my coords?
+    uint8_to_float(&color_value, &miplevel.texels[x + y]); // TODO how do I access the correct texel with my coords?
 
     Color color(color_value, color_value, color_value, 1); // TODO how do I apply that value as a colour?
 

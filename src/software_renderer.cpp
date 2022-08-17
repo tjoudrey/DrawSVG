@@ -549,20 +549,20 @@ namespace CMU462
   {
     // Task 6:
     // Implement image rasterization
-    int minX = std::min(x0, x1),
-        minY = std::min(y0, y1),
-        maxX = std::max(x0, x1),
-        maxY = std::max(y0, y1);
-    float normalizedX,
-        normalizedY;
+    float minX = std::min(x0, x1),
+          minY = std::min(y0, y1),
+          maxX = std::max(x0, x1),
+          maxY = std::max(y0, y1),
+          normalizedX,
+          normalizedY;
     Color color;
 
     this->sampler->generate_mips(tex, 0);
 
-    for (int x = minX; x < maxX; x++)
+    for (float x = minX; x < maxX; x++)
     {
       normalizedX = (x - minX) / (maxX - minX);
-      for (int y = minY; y < maxY; y++)
+      for (float y = minY; y < maxY; y++)
       {
         normalizedY = (y - minY) / (maxY - minY);
         color = sampler->sample_nearest(tex, normalizedX, normalizedY);
